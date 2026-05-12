@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RGB-kuvankäsittely</title>
+  
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 10px;
+      text-align: center;
+      background: #ffffff;
+    }
+
+    h1, h2 {
+      margin: 4px 0 8px 0;
+      font-size: 1.35rem;
+    }
+
+    input[type="text"] {
+      width: 260px;
+      margin: 3px;
+    }
+
+    button {
+      margin: 3px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+
+    .main-layout {
+      display: block;
+      gap: 12px;
+      align-items: start;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .side-by-side {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      text-align: left;
+    }
+
+    .function-inputs,
+    .instructions {
+      background: #f9f9f9;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      font-size: 0.86rem;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+
+    .function-inputs p,
+    .instructions p {
+      margin: 4px 0;
+    }
+
+    .instructions ul {
+      margin: 4px 0 6px 0;
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin: 2px 0;
+    }
+
+    .canvas-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+      margin-top: 0;
+    }
+
+    .canvas-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-weight: bold;
+    }
+
+    canvas {
+      margin-top: 4px;
+      border: 1px solid #bbb;
+      max-width: 100%;
+      max-height: 78vh;
+      width: auto;
+      height: auto;
+      background: #fff;
+    }
+
+    @media (max-width: 950px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-wrapper {
+        grid-template-columns: 1fr;
+      }
+
+      canvas {
+        max-height: none;
+      }
+    }
+  </style>
+
+</head>
+<body>
+  <h2>FY11 RGB-kuvankäsittely</h2>
+  <input type="file" id="upload" accept="image/*"><br>
+
+<div class="canvas-wrapper">
+    <div class="canvas-group">
+      <span>Alkuperäinen</span>
+      <canvas id="originalCanvas"></canvas>
+    </div>
+    <div class="canvas-group">
+      <span>Muokattu</span>
+      <canvas id="editedCanvas"></canvas>
+    </div>
+  </div>
+  <p class="hint">Lataa kuva ja kokeile valmiita muunnoksia tai kirjoita omat funktiot.</p>
+
+  <div class="side-by-side">
+    <div class="function-inputs">
+      <p>Kirjoita funktiot muodossa esim. <code>255 - R</code> tai <code>G * 1.2</code>.</p>
+
+      <label>R = <input type="text" id="rFunc" value="R"></label><br>
+      <label>G = <input type="text" id="gFunc" value="G"></label><br>
+      <label>B = <input type="text" id="bFunc" value="B"></label><br>
+
+      <strong>Valmiita kokeiluja:</strong>
+      <div class="preset-grid" id="presetButtons"></div>
+
+      <div class="main-buttons">
+        <div style="margin-top:10px;"><button id="applyBtn" style="background:#dfefff;">Suorita funktiot</button> <button id="resetBtn" style="background:#ffe7e7;">Palauta alkuperäinen</button></div>
+        <button id="randomBtn">Kokeile satunnaista</button>
+        
+        <button id="saveBtn">Tallenna muokattu kuva</button>
+      </div>
+
+      <p id="status"></p>
+    </div>
+
+    <div class="instructions">
+      <strong>Ideoita omiin funktioihin:</strong>
+      <ul>
+        <li><code>255 - R</code> &rarr; kanavan kääntö eli negatiivi</li>
+        <li><code>R * 1.3</code> &rarr; kanavan kirkastus</li>
+        <li><code>R * 0.7</code> &rarr; kanavan himmennys</li>
+        <li><code>(R + G + B) / 3</code> &rarr; harmaasävyarvo</li>
+        <li><code>Math.pow(R / 255, 0.5) * 255</code> &rarr; korostaa tummia sävyjä</li>
+        <li><code>Math.sin(R / 255 * Math.PI) * 255</code> &rarr; sinimuotoinen muunnos</li>
+        <li><code>R > 128 ? 255 : 0</code> &rarr; kynnysarvo</li>
+      </ul>
+      Voit käyttää JavaScript-funktioita kuten
+      <code>Math.abs()</code>, <code>Math.pow()</code>, <code>Math.sqrt()</code>,
+      <code>Math.sin()</code>, <code>Math.log()</code>, <code>Math.min()</code> ja
+      <code>Math.max()</code>.
+    </div>
+  </div>
+
+  </div>
+
+  
+  </div>
+
+  <script>
+    const upload = document.getElementById('upload');
+    const originalCanvas = document.getElementById('originalCanvas');
+    const editedCanvas = document.getElementById('editedCanvas');
+    const oCtx = originalCanvas.getContext('2d');
+    const eCtx = editedCanvas.getContext('2d');
+
+    const rFuncInput = document.getElementById('rFunc');
+    const gFuncInput = document.getElementById('gFunc');
+    const bFuncInput = document.getElementById('bFunc');
+    const applyBtn = document.getElementById('applyBtn');
+    const randomBtn = document.getElementById('randomBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const presetButtons = document.getElementById('presetButtons');
+    const statusText = document.getElementById('status');
+
+    let lastImageData = null;
+
+    const presets = [
+      {
+        name: "Negatiivi",
+        r: "255 - R",
+        g: "255 - G",
+        b: "255 - B",
+        description: "Jokainen kanava käännetään päinvastaiseksi."
+      },
+      {
+        name: "Harmaasävy",
+        r: "(R + G + B) / 3",
+        g: "(R + G + B) / 3",
+        b: "(R + G + B) / 3",
+        description: "Kaikki kanavat saavat saman keskiarvon."
+      },
+      {
+        name: "Punainen korostus",
+        r: "R * 1.5",
+        g: "G * 0.7",
+        b: "B * 0.7",
+        description: "Punainen vahvistuu ja muut kanavat vaimenevat."
+      },
+      {
+        name: "Kylmä sävy",
+        r: "R * 0.7",
+        g: "G * 1.05",
+        b: "B * 1.4",
+        description: "Sininen korostuu ja kuva muuttuu viileämmäksi."
+      },
+      {
+        name: "Suuri kontrasti",
+        r: "R > 128 ? 255 : 0",
+        g: "G > 128 ? 255 : 0",
+        b: "B > 128 ? 255 : 0",
+        description: "Jokainen kanava muutetaan joko nollaksi tai täyteen arvoon."
+      },
+      {
+        name: "Kanavien vaihto",
+        r: "G",
+        g: "B",
+        b: "R",
+        description: "Värikanavat kiertävät paikkoja."
+      },
+      {
+        name: "Tummien kirkastus",
+        r: "Math.sqrt(R / 255) * 255",
+        g: "Math.sqrt(G / 255) * 255",
+        b: "Math.sqrt(B / 255) * 255",
+        description: "Neliöjuurimuunnos nostaa tummia sävyjä."
+      },
+      {
+        name: "Siniaalto",
+        r: "Math.sin(R / 255 * Math.PI) * 255",
+        g: "Math.sin(G / 255 * Math.PI) * 255",
+        b: "Math.sin(B / 255 * Math.PI) * 255",
+        description: "Sävyarvoihin tehdään sinimuotoinen muunnos."
+      }
+    ];
+
+    const randomExpressions = [
+      "R", "G", "B",
+      "255 - R", "255 - G", "255 - B",
+      "R * 1.3", "G * 1.3", "B * 1.3",
+      "R * 0.7", "G * 0.7", "B * 0.7",
+      "(R + G + B) / 3",
+      "Math.sqrt(R / 255) * 255",
+      "Math.sqrt(G / 255) * 255",
+      "Math.sqrt(B / 255) * 255",
+      "Math.pow(R / 255, 2) * 255",
+      "Math.pow(G / 255, 2) * 255",
+      "Math.pow(B / 255, 2) * 255",
+      "Math.sin(R / 255 * Math.PI) * 255",
+      "Math.sin(G / 255 * Math.PI) * 255",
+      "Math.sin(B / 255 * Math.PI) * 255",
+      "R > 128 ? 255 : 0",
+      "G > 128 ? 255 : 0",
+      "B > 128 ? 255 : 0",
+      "Math.abs(R - G)",
+      "Math.abs(G - B)",
+      "Math.abs(B - R)",
+      "Math.max(R, G, B)",
+      "Math.min(R, G, B)"
+    ];
+
+    function clamp(value) {
+      return Math.min(255, Math.max(0, value));
+    }
+
+    function setFunctions(r, g, b, message = "") {
+      rFuncInput.value = r;
+      gFuncInput.value = g;
+      bFuncInput.value = b;
+      statusText.textContent = message;
+    }
+
+    function compileExpression(expression) {
+      return new Function("R", "G", "B", "return " + expression + ";");
+    }
+
+    function applyFunctions() {
+      if (!lastImageData) {
+        statusText.textContent = "Lataa ensin kuva.";
+        return;
+      }
+
+      const imageData = new ImageData(
+        new Uint8ClampedArray(lastImageData.data),
+        lastImageData.width,
+        lastImageData.height
+      );
+      const data = imageData.data;
+
+      let rFunction, gFunction, bFunction;
+
+      try {
+        rFunction = compileExpression(rFuncInput.value);
+        gFunction = compileExpression(gFuncInput.value);
+        bFunction = compileExpression(bFuncInput.value);
+      } catch (err) {
+        statusText.textContent = "Virhe funktion lausekkeessa. Tarkista sulut ja kirjoitusasu.";
+        console.error(err);
+        return;
+      }
+
+      try {
+        for (let i = 0; i < data.length; i += 4) {
+          const R = data[i];
+          const G = data[i + 1];
+          const B = data[i + 2];
+
+          data[i]     = clamp(rFunction(R, G, B));
+          data[i + 1] = clamp(gFunction(R, G, B));
+          data[i + 2] = clamp(bFunction(R, G, B));
+        }
+
+        eCtx.putImageData(imageData, 0, 0);
+        if (!statusText.textContent) {
+          statusText.textContent = "Muokkaus suoritettu.";
+        }
+      } catch (err) {
+        statusText.textContent = "Virhe funktion suorittamisessa. Tarkista, että käytät muuttujia R, G ja B.";
+        console.error(err);
+      }
+    }
+
+    function applyPreset(preset) {
+      setFunctions(preset.r, preset.g, preset.b, preset.name + ": " + preset.description);
+      applyFunctions();
+    }
+
+    function applyRandomFunctions() {
+      const r = randomExpressions[Math.floor(Math.random() * randomExpressions.length)];
+      const g = randomExpressions[Math.floor(Math.random() * randomExpressions.length)];
+      const b = randomExpressions[Math.floor(Math.random() * randomExpressions.length)];
+
+      setFunctions(r, g, b, "Satunnainen muunnos. Voit muokata näitä funktioita itse.");
+      applyFunctions();
+    }
+
+    function resetImage() {
+      setFunctions("R", "G", "B", "Alkuperäinen kuva palautettu.");
+      if (lastImageData) {
+        eCtx.putImageData(lastImageData, 0, 0);
+      }
+    }
+
+    function saveImage() {
+      if (!lastImageData) {
+        statusText.textContent = "Lataa ensin kuva.";
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.download = 'muokattu-kuva.png';
+      link.href = editedCanvas.toDataURL();
+      link.click();
+    }
+
+    presets.forEach((preset) => {
+      const button = document.createElement("button");
+      button.textContent = preset.name;
+      button.addEventListener("click", () => applyPreset(preset));
+      presetButtons.appendChild(button);
+    });
+
+    applyBtn.addEventListener('click', applyFunctions);
+    randomBtn.addEventListener('click', applyRandomFunctions);
+    resetBtn.addEventListener('click', resetImage);
+    saveBtn.addEventListener('click', saveImage);
+
+    upload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        originalCanvas.width = editedCanvas.width = img.width;
+        originalCanvas.height = editedCanvas.height = img.height;
+        oCtx.drawImage(img, 0, 0);
+
+        const imageData = oCtx.getImageData(0, 0, img.width, img.height);
+        lastImageData = imageData;
+
+        eCtx.putImageData(imageData, 0, 0);
+        statusText.textContent = "Kuva ladattu. Valitse valmis kokeilu tai kirjoita omat funktiot.";
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  </script>
+</body>
+</html>
