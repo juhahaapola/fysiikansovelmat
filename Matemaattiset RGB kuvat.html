@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <title>RGB-kuvageneraattori</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
+    input[type="text"] {
+      width: 300px;
+    }
+    .examples {
+      margin-top: 20px;
+    }
+    .examples button {
+      margin: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h2>FY11 RGB-kuvageneraattori</h2>
+  <p>Tämä työkalu tuottaa 256 × 256 pikselin kuvan, jossa jokaisen pikselin väri määritetään erikseen antamiesi funktioiden perusteella. Voit syöttää erilliset lausekkeet punaiselle (R), vihreälle (G) ja siniselle (B) kanavalle. Lausekkeissa voit käyttää muuttujia <code>x</code> ja <code>y</code>, jotka tarkoittavat pikselin koordinaatteja vaakasuunnassa ja pystysuunnassa.</p>
+  <p>Merkki <code>%</code> tarkoittaa <strong>moduloa</strong>, eli jakojäännöstä. Esimerkiksi <code>300 % 256</code> tuottaa arvon <code>44</code>, koska 300 jaettuna 256:lla on 1, ja jakojäännös on 44. Tätä käytetään usein pitämään väriarvot välillä 0–255.</p>
+
+  <label>R: <input type="text" id="rExpr" value="x"></label><br>
+  <label>G: <input type="text" id="gExpr" value="y"></label><br>
+  <label>B: <input type="text" id="bExpr" value="(x + y) % 256"></label><br>
+  <button onclick="generateImage()">Luo kuva</button>
+
+  <canvas id="canvas" width="256" height="256"></canvas>
+
+  <div class="examples">
+    <h3>Esimerkkejä:</h3>
+    <button onclick="setExample('255','0','0')">Punainen</button>
+    <button onclick="setExample('x','x','x')">Vaakagradientti</button>
+    <button onclick="setExample('y','0','0')">Pystygradientti (punainen)</button>
+    <button onclick="setExample('x ^ y','x & y','x | y')">Bittioperaatiot</button>
+    <button onclick="setExample('Math.sin(x/10)*127+128','Math.cos(y/10)*127+128','(x*y)%256')">Trig-funktiot</button>
+    <button onclick="setExample('Math.abs(x - y)','Math.min(x,y)','Math.max(x,y)')">Etäisyys ja min/max</button>
+    <button onclick="setExample('(x+y)%256','(x*y)%256','(x*x + y*y)%256')">Sekalaiset laskut</button>
+    <button onclick="setRandom()">🎲 Satunnainen</button>
+  </div>
+
+  <script>
+    function generateImage() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(canvas.width, canvas.height);
+
+      const rCode = document.getElementById('rExpr').value;
+      const gCode = document.getElementById('gExpr').value;
+      const bCode = document.getElementById('bExpr').value;
+
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          let i = (y * canvas.width + x) * 4;
+          let r = evalSafe(rCode, x, y);
+          let g = evalSafe(gCode, x, y);
+          let b = evalSafe(bCode, x, y);
+
+          imgData.data[i + 0] = r;
+          imgData.data[i + 1] = g;
+          imgData.data[i + 2] = b;
+          imgData.data[i + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    function evalSafe(expr, x, y) {
+      try {
+        return Math.max(0, Math.min(255, eval(expr)));
+      } catch {
+        return 0;
+      }
+    }
+
+    function setExample(r, g, b) {
+      document.getElementById('rExpr').value = r;
+      document.getElementById('gExpr').value = g;
+      document.getElementById('bExpr').value = b;
+      generateImage();
+    }
+
+    function setRandom() {
+      const ops = ['+', '-', '*', '%', '^', '&', '|'];
+      const funcs = ['Math.sin', 'Math.cos', 'Math.tan', 'Math.abs', 'Math.sqrt'];
+      function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+      function randExpr() {
+        const a = Math.random() < 0.5 ? 'x' : 'y';
+        const b = Math.random() < 0.5 ? 'x' : 'y';
+        const op = randItem(ops);
+        if (Math.random() < 0.5) {
+          return `(${a} ${op} ${b}) % 256`;
+        } else {
+          const func = randItem(funcs);
+          return `${func}(${a} / ${Math.floor(Math.random() * 20 + 5)}) * 127 + 128`;
+        }
+      }
+      setExample(randExpr(), randExpr(), randExpr());
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setExample('x', 'y', '(x + y) % 256');
+    });
+  </script>
+</body>
+</html>
