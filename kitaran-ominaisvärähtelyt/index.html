@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Kitaran kielen ominaisvärähtelyt</title>
+
+  <style>
+    :root {
+      --background: #f3f6fa;
+      --card: #ffffff;
+      --border: #d5dde8;
+      --text: #1f2937;
+      --muted: #64748b;
+
+      --primary: #2457a6;
+      --primary-dark: #173d78;
+
+      --mode1: #dc2626;
+      --mode2: #2563eb;
+      --mode3: #15803d;
+      --sum: #7e22ce;
+
+      --code-bg: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 14px;
+      background: var(--background);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(900px, 100%);
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      color: var(--primary-dark);
+      font-size: 1.7rem;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+      color: var(--primary-dark);
+    }
+
+    p {
+      margin-top: 0;
+    }
+
+    .card {
+      margin-bottom: 16px;
+      padding: 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgb(15 23 42 / 6%);
+    }
+
+    .intro {
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      min-height: 42px;
+      padding: 9px 15px;
+      border: 0;
+      border-radius: 7px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary-button {
+      color: white;
+      background: var(--primary);
+    }
+
+    .primary-button:hover {
+      background: var(--primary-dark);
+    }
+
+    .secondary-button {
+      color: var(--text);
+      background: #e8edf4;
+    }
+
+    .secondary-button:hover {
+      background: #dbe3ed;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid #93c5fd;
+      outline-offset: 2px;
+    }
+
+    .mode {
+      padding: 16px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .mode:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 360px);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .mode-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+
+    .mode-title input {
+      width: 20px;
+      height: 20px;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) 55px;
+      gap: 10px;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    output {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mode-svg,
+    .sum-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #fff;
+      border-radius: 7px;
+    }
+
+    .equation {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--code-bg);
+      border-radius: 7px;
+      font-family: "Courier New", monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .sum-info {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .time {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    details {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: #eef2f7;
+      border-radius: 7px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 650px) {
+      .mode-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        padding: 8px;
+      }
+
+      .card {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<main>
+
+  <section class="card">
+
+    <h1>Kitaran kielen ominaisvärähtelyt</h1>
+
+    <p class="intro">
+      Kiinteästi päistään sidottu kieli voi värähdellä useassa
+      ominaisvärähtelyssä samanaikaisesti. Kielen hetkellinen muoto saadaan
+      laskemalla eri ominaisvärähtelyjen poikkeamat yhteen.
+    </p>
+
+    <div class="controls">
+      <button
+        id="toggle-animation"
+        type="button"
+        class="primary-button">
+        Käynnistä
+      </button>
+
+      <button
+        id="reset"
+        type="button"
+        class="secondary-button">
+        Palauta alkuarvot
+      </button>
+    </div>
+
+  </section>
+
+
+  <section class="card">
+
+    <!-- 1. ominaisvärähtely -->
+
+    <div class="mode">
+
+      <div class="mode-grid">
+
+        <div>
+
+          <label class="mode-title">
+            <input id="mode1-on" type="checkbox" checked>
+            1. ominaisvärähtely, n = 1
+          </label>
+
+          <div class="slider-row">
+            <span>A₁</span>
+
+            <input
+              id="amplitude1"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.65">
+
+            <output id="amplitude1-output">
+              0,65
+            </output>
+          </div>
+
+          <div class="equation">
+            y₁(x,t) = A₁ sin(πx/L) cos(ω₁t)
+          </div>
+
+        </div>
+
+
+        <svg
+          class="mode-svg"
+          viewBox="0 0 360 130"
+          role="img"
+          aria-label="Ensimmäinen ominaisvärähtely">
+
+          <line
+            x1="20"
+            y1="65"
+            x2="340"
+            y2="65"
+            stroke="#64748b"
+            stroke-dasharray="5 5"
+            opacity="0.45">
+          </line>
+
+          <circle cx="20" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="340" cy="65" r="5" fill="#111827"></circle>
+
+          <path
+            id="mode1-path"
+            fill="none"
+            stroke="var(--mode1)"
+            stroke-width="4"
+            stroke-linecap="round">
+          </path>
+
+        </svg>
+
+      </div>
+
+    </div>
+
+
+    <!-- 2. ominaisvärähtely -->
+
+    <div class="mode">
+
+      <div class="mode-grid">
+
+        <div>
+
+          <label class="mode-title">
+            <input id="mode2-on" type="checkbox" checked>
+            2. ominaisvärähtely, n = 2
+          </label>
+
+          <div class="slider-row">
+            <span>A₂</span>
+
+            <input
+              id="amplitude2"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.35">
+
+            <output id="amplitude2-output">
+              0,35
+            </output>
+          </div>
+
+          <div class="equation">
+            y₂(x,t) = A₂ sin(2πx/L) cos(2ω₁t)
+          </div>
+
+        </div>
+
+
+        <svg
+          class="mode-svg"
+          viewBox="0 0 360 130"
+          role="img"
+          aria-label="Toinen ominaisvärähtely">
+
+          <line
+            x1="20"
+            y1="65"
+            x2="340"
+            y2="65"
+            stroke="#64748b"
+            stroke-dasharray="5 5"
+            opacity="0.45">
+          </line>
+
+          <circle cx="20" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="180" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="340" cy="65" r="5" fill="#111827"></circle>
+
+          <path
+            id="mode2-path"
+            fill="none"
+            stroke="var(--mode2)"
+            stroke-width="4"
+            stroke-linecap="round">
+          </path>
+
+        </svg>
+
+      </div>
+
+    </div>
+
+
+    <!-- 3. ominaisvärähtely -->
+
+    <div class="mode">
+
+      <div class="mode-grid">
+
+        <div>
+
+          <label class="mode-title">
+            <input id="mode3-on" type="checkbox" checked>
+            3. ominaisvärähtely, n = 3
+          </label>
+
+          <div class="slider-row">
+            <span>A₃</span>
+
+            <input
+              id="amplitude3"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.20">
+
+            <output id="amplitude3-output">
+              0,20
+            </output>
+          </div>
+
+          <div class="equation">
+            y₃(x,t) = A₃ sin(3πx/L) cos(3ω₁t)
+          </div>
+
+        </div>
+
+
+        <svg
+          class="mode-svg"
+          viewBox="0 0 360 130"
+          role="img"
+          aria-label="Kolmas ominaisvärähtely">
+
+          <line
+            x1="20"
+            y1="65"
+            x2="340"
+            y2="65"
+            stroke="#64748b"
+            stroke-dasharray="5 5"
+            opacity="0.45">
+          </line>
+
+          <circle cx="20" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="126.7" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="233.3" cy="65" r="5" fill="#111827"></circle>
+          <circle cx="340" cy="65" r="5" fill="#111827"></circle>
+
+          <path
+            id="mode3-path"
+            fill="none"
+            stroke="var(--mode3)"
+            stroke-width="4"
+            stroke-linecap="round">
+          </path>
+
+        </svg>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ominaisvärähtelyjen summa -->
+
+  <section class="card">
+
+    <div class="sum-info">
+
+      <h2>Ominaisvärähtelyjen summa</h2>
+
+      <div
+        id="time-display"
+        class="time">
+        t = 0,00
+      </div>
+
+    </div>
+
+
+    <svg
+      class="sum-svg"
+      viewBox="0 0 760 260"
+      role="img"
+      aria-label="Kitaran kielen hetkellinen muoto ominaisvärähtelyjen summana">
+
+      <line
+        x1="45"
+        y1="130"
+        x2="715"
+        y2="130"
+        stroke="#64748b"
+        stroke-dasharray="7 7"
+        opacity="0.45">
+      </line>
+
+      <rect
+        x="30"
+        y="75"
+        width="15"
+        height="110"
+        rx="2"
+        fill="#475569">
+      </rect>
+
+      <rect
+        x="715"
+        y="75"
+        width="15"
+        height="110"
+        rx="2"
+        fill="#475569">
+      </rect>
+
+      <circle cx="45" cy="130" r="5" fill="#111827"></circle>
+      <circle cx="715" cy="130" r="5" fill="#111827"></circle>
+
+      <path
+        id="sum-path"
+        fill="none"
+        stroke="var(--sum)"
+        stroke-width="5"
+        stroke-linecap="round">
+      </path>
+
+      <text
+        x="39"
+        y="210"
+        font-size="14"
+        fill="#475569">
+        0
+      </text>
+
+      <text
+        x="708"
+        y="210"
+        font-size="14"
+        fill="#475569">
+        L
+      </text>
+
+    </svg>
+
+
+    <div class="equation">
+      y(x,t) =
+      A₁ sin(πx/L) cos(ω₁t)
+      + A₂ sin(2πx/L) cos(2ω₁t)
+      + A₃ sin(3πx/L) cos(3ω₁t)
+    </div>
+
+    <p class="note">
+      Ideaaliselle kielelle ominaisvärähtelyjen taajuudet ovat
+      fₙ = n f₁. Siksi toinen ominaisvärähtely värähtelee kaksi kertaa
+      ja kolmas kolme kertaa perusvärähtelyä nopeammin.
+    </p>
+
+
+    <!-- AVATTAVA KOHTA 1 -->
+
+    <details>
+
+      <summary>
+        Näytä ominaisvärähtelyn laskentaperiaate
+      </summary>
+
+      <p class="note">
+        Jokaisen ominaisvärähtelyn poikkeama lasketaan erikseen.
+        Lopuksi poikkeamat summataan.
+      </p>
+
+      <pre><code>y1 = A1 * sin(PI * x / L)
+           * cos(omega * t);
+
+y2 = A2 * sin(2 * PI * x / L)
+           * cos(2 * omega * t);
+
+y3 = A3 * sin(3 * PI * x / L)
+           * cos(3 * omega * t);
+
+y = y1 + y2 + y3;</code></pre>
+
+    </details>
+
+
+    <!-- AVATTAVA KOHTA 2 -->
+
+    <details>
+
+      <summary>
+        Näytä, miten kieli piirretään
+      </summary>
+
+      <p class="note">
+        Kieli piirretään laskemalla poikkeama useassa pisteessä
+        pitkin kieltä ja yhdistämällä pisteet viivaksi.
+      </p>
+
+      <pre><code>for (x = 0; x &lt;= L; x += dx) {
+
+    y = laskeKielenPoikkeama(x, t);
+
+    ruudunX = vasenReuna
+              + x * mittakaava;
+
+    ruudunY = tasapainoasema
+              - y * pystymittakaava;
+
+    piirraPiste(
+        ruudunX,
+        ruudunY
+    );
+}</code></pre>
+
+      <p class="note">
+        Fysiikan muuttuja y kertoo kielen poikkeaman tasapainoasemasta.
+        Piirtämistä varten metreinä ajateltu paikka muunnetaan näytön
+        koordinaatiksi.
+      </p>
+
+    </details>
+
+  </section>
+
+</main>
+
+
+<script>
+  const mode1On = document.getElementById("mode1-on");
+  const mode2On = document.getElementById("mode2-on");
+  const mode3On = document.getElementById("mode3-on");
+
+  const amplitude1 = document.getElementById("amplitude1");
+  const amplitude2 = document.getElementById("amplitude2");
+  const amplitude3 = document.getElementById("amplitude3");
+
+  const amplitude1Output =
+    document.getElementById("amplitude1-output");
+
+  const amplitude2Output =
+    document.getElementById("amplitude2-output");
+
+  const amplitude3Output =
+    document.getElementById("amplitude3-output");
+
+  const mode1Path =
+    document.getElementById("mode1-path");
+
+  const mode2Path =
+    document.getElementById("mode2-path");
+
+  const mode3Path =
+    document.getElementById("mode3-path");
+
+  const sumPath =
+    document.getElementById("sum-path");
+
+  const timeDisplay =
+    document.getElementById("time-display");
+
+  const toggleAnimation =
+    document.getElementById("toggle-animation");
+
+  const resetButton =
+    document.getElementById("reset");
+
+
+  let running = false;
+  let animationFrame = null;
+  let previousTime = null;
+
+  /*
+    t kuvaa tässä värähtelyn vaihetta.
+  */
+
+  let t = 0;
+
+
+  function formatNumber(value) {
+    return Number(value)
+      .toFixed(2)
+      .replace(".", ",");
+  }
+
+
+  /*
+    Yhden ominaisvärähtelyn poikkeama.
+
+    Pituus L on skaalattu arvoon 1.
+    Peruskulmataajuus omega on skaalattu arvoon 1.
+  */
+
+  function modeDisplacement(
+    n,
+    amplitude,
+    x,
+    time
+  ) {
+
+    return amplitude
+      * Math.sin(n * Math.PI * x)
+      * Math.cos(n * time);
+
+  }
+
+
+  /*
+    Yksittäisen ominaisvärähtelyn käyrä.
+  */
+
+  function createModePath(
+    n,
+    amplitude,
+    time
+  ) {
+
+    const left = 20;
+    const right = 340;
+
+    const centerY = 65;
+    const verticalScale = 50;
+
+    const points = 150;
+
+    let path = "";
+
+    for (let i = 0; i <= points; i++) {
+
+      const x = i / points;
+
+      const y =
+        modeDisplacement(
+          n,
+          amplitude,
+          x,
+          time
+        );
+
+      const screenX =
+        left + x * (right - left);
+
+      const screenY =
+        centerY - y * verticalScale;
+
+      path +=
+        (i === 0 ? "M" : "L")
+        + screenX.toFixed(2)
+        + " "
+        + screenY.toFixed(2)
+        + " ";
+    }
+
+    return path;
+  }
+
+
+  /*
+    Ominaisvärähtelyjen summan käyrä.
+  */
+
+  function createSumPath(time) {
+
+    const left = 45;
+    const right = 715;
+
+    const centerY = 130;
+    const verticalScale = 72;
+
+    const points = 250;
+
+    let path = "";
+
+    for (let i = 0; i <= points; i++) {
+
+      const x = i / points;
+
+      let y = 0;
+
+      if (mode1On.checked) {
+
+        y += modeDisplacement(
+          1,
+          Number(amplitude1.value),
+          x,
+          time
+        );
+      }
+
+      if (mode2On.checked) {
+
+        y += modeDisplacement(
+          2,
+          Number(amplitude2.value),
+          x,
+          time
+        );
+      }
+
+      if (mode3On.checked) {
+
+        y += modeDisplacement(
+          3,
+          Number(amplitude3.value),
+          x,
+          time
+        );
+      }
+
+      const screenX =
+        left + x * (right - left);
+
+      const screenY =
+        centerY - y * verticalScale;
+
+      path +=
+        (i === 0 ? "M" : "L")
+        + screenX.toFixed(2)
+        + " "
+        + screenY.toFixed(2)
+        + " ";
+    }
+
+    return path;
+  }
+
+
+  function draw() {
+
+    const A1 =
+      mode1On.checked
+        ? Number(amplitude1.value)
+        : 0;
+
+    const A2 =
+      mode2On.checked
+        ? Number(amplitude2.value)
+        : 0;
+
+    const A3 =
+      mode3On.checked
+        ? Number(amplitude3.value)
+        : 0;
+
+
+    amplitude1Output.textContent =
+      formatNumber(amplitude1.value);
+
+    amplitude2Output.textContent =
+      formatNumber(amplitude2.value);
+
+    amplitude3Output.textContent =
+      formatNumber(amplitude3.value);
+
+
+    mode1Path.setAttribute(
+      "d",
+      createModePath(1, A1, t)
+    );
+
+    mode2Path.setAttribute(
+      "d",
+      createModePath(2, A2, t)
+    );
+
+    mode3Path.setAttribute(
+      "d",
+      createModePath(3, A3, t)
+    );
+
+
+    sumPath.setAttribute(
+      "d",
+      createSumPath(t)
+    );
+
+
+    mode1Path.style.opacity =
+      mode1On.checked ? "1" : "0.15";
+
+    mode2Path.style.opacity =
+      mode2On.checked ? "1" : "0.15";
+
+    mode3Path.style.opacity =
+      mode3On.checked ? "1" : "0.15";
+
+
+    timeDisplay.textContent =
+      "t = " + formatNumber(t);
+
+  }
+
+
+  function animate(timestamp) {
+
+    if (!running) {
+      return;
+    }
+
+    if (previousTime === null) {
+      previousTime = timestamp;
+    }
+
+    const realDeltaTime =
+      Math.min(
+        (timestamp - previousTime) / 1000,
+        0.05
+      );
+
+    previousTime = timestamp;
+
+
+    /*
+      Kerroin 2.2 määrää vain animaation
+      näyttönopeuden.
+    */
+
+    t += realDeltaTime * 2.2;
+
+    draw();
+
+    animationFrame =
+      requestAnimationFrame(animate);
+  }
+
+
+  toggleAnimation.addEventListener(
+    "click",
+    function () {
+
+      running = !running;
+
+      if (running) {
+
+        toggleAnimation.textContent =
+          "Pysäytä";
+
+        previousTime = null;
+
+        animationFrame =
+          requestAnimationFrame(animate);
+
+      } else {
+
+        toggleAnimation.textContent =
+          "Jatka";
+
+        if (animationFrame) {
+
+          cancelAnimationFrame(
+            animationFrame
+          );
+
+          animationFrame = null;
+        }
+      }
+    }
+  );
+
+
+  resetButton.addEventListener(
+    "click",
+    function () {
+
+      running = false;
+
+      if (animationFrame) {
+
+        cancelAnimationFrame(
+          animationFrame
+        );
+
+        animationFrame = null;
+      }
+
+      previousTime = null;
+
+      t = 0;
+
+      amplitude1.value = 0.65;
+      amplitude2.value = 0.35;
+      amplitude3.value = 0.20;
+
+      mode1On.checked = true;
+      mode2On.checked = true;
+      mode3On.checked = true;
+
+      toggleAnimation.textContent =
+        "Käynnistä";
+
+      draw();
+    }
+  );
+
+
+  amplitude1.addEventListener(
+    "input",
+    draw
+  );
+
+  amplitude2.addEventListener(
+    "input",
+    draw
+  );
+
+  amplitude3.addEventListener(
+    "input",
+    draw
+  );
+
+  mode1On.addEventListener(
+    "change",
+    draw
+  );
+
+  mode2On.addEventListener(
+    "change",
+    draw
+  );
+
+  mode3On.addEventListener(
+    "change",
+    draw
+  );
+
+
+  draw();
+</script>
+
+</body>
+</html>
