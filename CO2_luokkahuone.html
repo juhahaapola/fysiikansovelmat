@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CO₂ luokkahuoneessa – mallin yhtälö ja simulaatio</title>
+  <style>
+    :root { color-scheme: light; --ink:#183149; --muted:#64788a; --line:#dbe5ed; --blue:#1977bc; --pale:#f4f8fb; --green:#2b7e83; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif; color:var(--ink); background:#f3f6fa; }
+    main { width:min(1250px,calc(100% - 32px)); margin:32px auto 48px; }
+    header { margin-bottom:20px; }
+    h1 { font-size:clamp(24px,3vw,35px); letter-spacing:-.035em; line-height:1.18; margin:0 0 7px; }
+    h2 { font-size:17px; letter-spacing:-.015em; margin:0 0 13px; }
+    p { margin:0; }
+    .muted { color:var(--muted); }
+    .intro { font-size:15px; }
+    .layout { display:grid; grid-template-columns: minmax(285px, 340px) minmax(0,1fr); gap:16px; align-items:start; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 3px 16px #1f45540b; padding:20px; }
+    .controls { grid-row:span 2; }
+    .control { margin:0 0 21px; }
+    .controlHead { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:7px; }
+    .control label { font-weight:600; }
+    .value { white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:700; color:var(--blue); }
+    .range-wrap { position:relative; padding-top:4px; }
+    input[type="range"] { display:block; width:100%; height:21px; margin:0; accent-color:var(--blue); cursor:pointer; position:relative; z-index:1; }
+    .reference-tick { position:absolute; top:-1px; height:28px; width:3px; background:linear-gradient(to bottom,#cf812c 0 23%,transparent 23% 76%,#cf812c 76% 100%); z-index:2; transform:translateX(-50%); pointer-events:none; }
+    .reference-desc { color:#965e18; font-size:12px; line-height:1.35; margin-top:5px; min-height:16px; }
+    .reference-desc::before { content:'◆'; font-size:9px; margin-right:6px; color:#cc842b; vertical-align:1px; }
+    .benchmark-legend { color:var(--muted); font-size:12px; line-height:1.45; margin:-4px 0 16px; }
+    .benchmark-legend b { color:#a76a20; }
+    .bounds { display:flex; justify-content:space-between; font-size:11px; color:#8494a3; margin-top:1px; }
+    .hint { font-size:12px; margin-top:4px; color:var(--muted); }
+    .buttons { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+    button { border:1px solid var(--line); padding:10px 13px; border-radius:9px; background:#fff; color:var(--ink); font:600 13px system-ui,sans-serif; cursor:pointer; }
+    button:hover { background:#f1f7fc; }
+    .primary { background:var(--blue); color:white; border-color:var(--blue); }
+    .primary:hover { background:#135e96; }
+    .speedRow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    select { font:inherit; color:var(--ink); background:white; border:1px solid var(--line); padding:7px 10px; border-radius:8px; }
+    .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:13px 0 16px; }
+    .stat { background:var(--pale); border-radius:10px; padding:10px 12px; min-width:0; }
+    .stat-label { display:block; color:var(--muted); font-size:12px; }
+    .stat strong { display:block; font-size:clamp(16px,2.2vw,24px); letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.4; }
+    .stat small { font-size:12px; color:var(--muted); }
+    .canvas-wrap { border:1px solid #dce7f0; background:#f8fbfd; border-radius:10px; overflow:hidden; }
+    canvas { width:100%; display:block; }
+    #room { height:280px; }
+    #graph { height:300px; }
+    .figure-bottom { display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; margin-top:9px; font-size:12px; color:var(--muted); }
+    .legend-dot { display:inline-block; width:8px; height:8px; background:#7f8d9a; margin-right:5px; vertical-align:middle; }
+    .notes { margin-top:16px; padding-top:13px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.6; }
+    .notes code { color:var(--ink); }
+    .formula { font:14px/1.5 'Cambria Math',Georgia,serif; background:var(--pale); border-radius:9px; padding:11px; margin-top:14px; overflow-wrap:anywhere; }
+
+    /* Lukijan ensimmäisenä näkemä yhtälö ja avautuvat selitykset. */
+    .model-overview { margin-bottom:22px; }
+    .model-headline { font-size:18px; font-weight:750; margin:0 0 7px; }
+    .model-subtitle { color:var(--muted); font-size:14px; margin:0 0 14px; }
+    .equation-band { background:#f6f9fc; border:1px solid #dce7f0; border-radius:12px; padding:19px 16px 14px; overflow-x:auto; }
+    .equation-row { display:flex; gap:12px; align-items:end; justify-content:center; min-width:610px; }
+    .equation-term { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:0; }
+    .equation-name { font-size:12px; font-family:system-ui,sans-serif; color:#52687b; white-space:nowrap; font-weight:700; }
+    .equation-name.people { color:#1b7563; }
+    .equation-name.vent { color:#ad6427; }
+    .equation-operator { font:normal 27px/1.1 Georgia,serif; color:#465b6c; padding-bottom:6px; }
+    .equation-term math { font-size:26px; color:#143f57; height:49px; }
+    .equation-term .math-neg { color:#84491c; }
+    .glossary { font-size:13px; color:var(--muted); margin:13px 2px 0; line-height:1.6; }
+    .glossary b { color:#365266; }
+    .explain-actions { margin-top:14px; display:flex; gap:14px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+    .explain-actions button { border-color:#a9bfd0; background:#fff; font-weight:700; }
+    .explain-actions .smallnote { font-size:12px; color:var(--muted); }
+    .explanation { margin-top:15px; border-top:1px solid var(--line); padding-top:18px; }
+    .explanation[hidden] { display:none; }
+    .explanation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .explain-card { border:1px solid #e1eaf1; border-radius:11px; padding:16px; background:#fff; }
+    .explain-card h3 { font-size:15px; margin:0 0 9px; }
+    .explain-card p { font-size:14px; margin:0 0 10px; line-height:1.6; }
+    .explain-card p:last-child { margin-bottom:0; }
+    .explain-formula { background:#f4f8fb; font:21px/1.35 'Cambria Math',Georgia,serif; padding:9px 12px; margin:10px 0; border-radius:8px; text-align:center; overflow-x:auto; }
+    .explain-formula math { font-size:20px; }
+    .explain-card .example { font-size:13px; color:#536c80; background:#f8fafc; border-left:3px solid #d6e3ed; padding:9px 11px; border-radius:4px; }
+    .explain-footer { margin:13px 0 0; font-size:13px; color:#51687b; }
+    .section-heading { margin:20px 0 11px; }
+    .section-heading h2 { font-size:22px; margin:0 0 3px; }
+    .section-heading p { color:var(--muted); font-size:13px; }
+    .tangent-bar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:9px; margin:0 0 9px; }
+    .tangent-bar label { font-size:13px; color:#435a6c; display:flex; align-items:center; gap:7px; cursor:pointer; }
+    .tangent-bar input { accent-color:#b96723; width:16px; height:16px; }
+    .tangent-readout { background:#fff5e9; border:1px solid #f2dbbf; color:#794513; border-radius:8px; padding:8px 11px; font-size:13px; font-variant-numeric:tabular-nums; margin-top:9px; }
+    .tangent-readout strong { font-size:15px; }
+    .tangent-note { color:var(--muted); font-size:12px; line-height:1.5; margin-top:7px; }
+    #graph { cursor:crosshair; touch-action:manipulation; }
+    .secondary-small { font-size:12px; padding:6px 9px; }
+    .graph-key { display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap; }
+    .key-mark { display:inline-block; width:17px; height:0; border-top:3px solid #167bb9; vertical-align:middle; }
+    .key-mark.eq { border-color:#bd9170; border-top-style:dashed; }
+    .key-mark.tan { border-color:#bd681f; }
+    .formulaincontrols { display:none; }
+    @media(max-width:740px) { .explanation-grid { grid-template-columns:1fr; } .equation-band { padding-left:11px; padding-right:11px; } }
+    @media(max-width:860px) {
+      .layout { grid-template-columns:1fr; }
+      .controls { grid-row:auto; }
+      .control-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+      #room { height:250px; }
+    }
+    @media(max-width:570px) { main { margin:16px auto 32px; width:calc(100% - 20px); } .panel { padding:15px; } .control-grid { display:block; } .stats { gap:5px; } .stat { padding:8px; } .stat-label { font-size:10px; } #room { height:220px; } #graph { height:255px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Luokkahuoneen CO₂-simulaatio</h1>
+    <p class="intro muted">Muuta henkilömäärää, hengityksen CO₂-tuottoa ja ilmanvaihtoa. Seuraa pitoisuuden kehittymistä.</p>
+  </header>
+
+  <section class="panel model-overview" aria-labelledby="modelTitle">
+    <h2 class="model-headline" id="modelTitle">Mistä CO₂-pitoisuuden muutos johtuu?</h2>
+    <p class="model-subtitle">Hiilidioksidia syntyy ihmisten hengityksestä ja poistuu ilmanvaihdon mukana. Yhtälö kertoo, kuinka nopeasti pitoisuus muuttuu kullakin hetkellä.</p>
+    <div class="equation-band">
+      <div class="equation-row" aria-label="dC per dt on yhtä kuin 1000 kertaa N kertaa q h jaettuna V:llä, miinus Q jaettuna V:llä kertaa C miinus C u">
+        <div class="equation-term"><div class="equation-name">Pitoisuuden muutosnopeus</div>
+          <math xmlns="http://www.w3.org/1998/Math/MathML"><mfrac><mrow><mi>d</mi><mi>C</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac></math>
+        </div>
+        <span class="equation-operator">=</span>
+        <div class="equation-term"><div class="equation-name people">Ihmisten CO₂-tuotto</div>
+          <math xmlns="http://www.w3.org/1998/Math/MathML"><mfrac><mrow><mn>1000</mn><mo>·</mo><mi>N</mi><mo>·</mo><msub><mi>q</mi><mi>h</mi></msub></mrow><mi>V</mi></mfrac></math>
+        </div>
+        <span class="equation-operator">−</span>
+        <div class="equation-term"><div class="equation-name vent">Ilmanvaihdon vaikutus</div>
+          <math class="math-neg" xmlns="http://www.w3.org/1998/Math/MathML"><mfrac><mi>Q</mi><mi>V</mi></mfrac><mo>·</mo><mo>(</mo><mi>C</mi><mo>−</mo><msub><mi>C</mi><mi>u</mi></msub><mo>)</mo></math>
+        </div>
+      </div>
+      <p class="glossary"><b>C</b> = huoneen CO₂-pitoisuus (ppm), <b>t</b> = aika (h), <b>N</b> = henkilömäärä, <b>q<sub>h</sub></b> = yhden henkilön CO₂-tuotto (l/h), <b>V</b> = huoneen tilavuus (m³), <b>Q</b> = ilmanvaihto (m³/h), <b>C<sub>u</sub></b> = tuloilman CO₂-pitoisuus (ppm).</p>
+    </div>
+    <div class="explain-actions">
+      <button type="button" id="explainToggle" aria-expanded="false" aria-controls="explanation">Näytä yhtälön tarkempi selitys ▾</button>
+      <span class="smallnote">Derivaatta dC/dt = pitoisuuden hetkellinen muutosnopeus (ppm/h).</span>
+    </div>
+    <div class="explanation" id="explanation" hidden>
+      <div class="explanation-grid">
+        <article class="explain-card">
+          <h3>1. Ihmisten tuottama hiilidioksidi</h3>
+          <p>Yksi henkilö tuottaa hengittäessään hiilidioksidia tilavuusvirralla <b>q<sub>h</sub></b> (l/h). Jos huoneessa on <b>N</b> henkilöä, koko luokan tuotto on</p>
+          <div class="explain-formula">q<sub>CO₂</sub> = N · q<sub>h</sub></div>
+          <p>Sama CO₂-määrä aiheuttaa pienemmässä huoneessa suuremman pitoisuuden kasvun. Siksi tuottonopeus jaetaan huoneen tilavuudella <b>V</b>. Kerroin <b>1000</b> muuntaa yksikön l/(h·m³) yksiköksi ppm/h.</p>
+          <div class="explain-formula"><math xmlns="http://www.w3.org/1998/Math/MathML"><mfrac><mrow><mn>1000</mn><mo>·</mo><mi>N</mi><mo>·</mo><msub><mi>q</mi><mi>h</mi></msub></mrow><mi>V</mi></mfrac></math></div>
+          <p class="example">Esimerkki: 30 henkilöä × 18 l/h = 540 l/h. 180 m³:n huoneessa pitoisuus kasvaisi ilman ilmanvaihtoa nopeudella 1000 × 540 / 180 = <b>3000 ppm/h</b>.</p>
+        </article>
+        <article class="explain-card">
+          <h3>2. Ilmanvaihdon vaikutus</h3>
+          <p>Tilavuusvirta <b>Q</b> kertoo, kuinka monta kuutiometriä ilmaa tulee ja poistuu huoneesta tunnissa. Suhde <b>Q/V</b> on ilmanvaihtokerroin (1/h).</p>
+          <p>Poistuvan ilman CO₂-pitoisuus on <b>C</b> ja tulevan ilman <b>C<sub>u</sub></b>. Yksi poistuva ilmakuutiometri vie siis mukanaan enemmän CO₂:ta kuin korvaava kuutiometri tuo, jos <b>C &gt; C<sub>u</sub></b>. Vaikutus riippuu pitoisuuserosta <b>C − C<sub>u</sub></b>.</p>
+          <div class="explain-formula"><math xmlns="http://www.w3.org/1998/Math/MathML"><mo>−</mo><mfrac><mi>Q</mi><mi>V</mi></mfrac><mo>·</mo><mo>(</mo><mi>C</mi><mo>−</mo><msub><mi>C</mi><mi>u</mi></msub><mo>)</mo></math></div>
+          <p class="example">Esimerkki: Q = 360 m³/h, V = 180 m³, C = 1000 ppm ja C<sub>u</sub> = 420 ppm. Ilmanvaihdon vaikutus on −(360/180) × (1000 − 420) = <b>−1160 ppm/h</b>. Pitoisuuden pienentyessä myös poistava vaikutus heikkenee.</p>
+        </article>
+        <article class="explain-card">
+          <h3>3. Mitä derivaatta tarkoittaa?</h3>
+          <p>Merkintä <b>dC/dt</b> tarkoittaa CO₂-pitoisuuden <b>hetkellistä muutosnopeutta</b> eli derivaattaa. Yksikkö on ppm/h. Positiivinen arvo kertoo pitoisuuden kasvavan, negatiivinen arvo sen pienenevän ja nolla tarkoittaa, ettei pitoisuus juuri sillä hetkellä muutu.</p>
+          <p><b>Kuvaajan tangentin kulmakerroin</b> vastaa tätä muutosnopeutta. Tangentin loivetessa pitoisuuden muutos hidastuu. Voit tarkastella tangenttia myös aiemmissa ajanhetkissä napauttamalla kuvaajaa.</p>
+          <p class="example">Esimerkki: +600 ppm/h tarkoittaa, että pitoisuus kasvaa <b>juuri nyt</b> tällä nopeudella. Se ei tarkoita, että pitoisuus kasvaisi koko seuraavan tunnin tasaisesti 600 ppm.</p>
+        </article>
+        <article class="explain-card">
+          <h3>4. Milloin pitoisuus ei enää muutu?</h3>
+          <p>Kun ihmiset tuottavat hiilidioksidia yhtä nopeasti kuin ilmanvaihto poistaa sitä, muutosnopeus on nolla (<b>dC/dt = 0</b>). Tällöin pitoisuus on tasapainossa.</p>
+          <div class="explain-formula"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>C</mi><mtext>tasapaino</mtext></msub><mo>=</mo><msub><mi>C</mi><mi>u</mi></msub><mo>+</mo><mfrac><mrow><mn>1000</mn><mo>·</mo><mi>N</mi><mo>·</mo><msub><mi>q</mi><mi>h</mi></msub></mrow><mi>Q</mi></mfrac></math></div>
+          <p>Tasapainopitoisuus riippuu henkilömäärästä, CO₂-tuotosta ja ilmanvaihdosta, mutta ei huoneen tilavuudesta. Huoneen koko vaikuttaa siihen, <b>kuinka nopeasti</b> tasapainoa lähestytään. Jos ilmanvaihto on kokonaan pois päältä ja ihmiset tuottavat CO₂:ta, tasapainopitoisuutta ei ole.</p>
+        </article>
+      </div>
+      <p class="explain-footer">Mallin oletukset: ilma sekoittuu täydellisesti koko huoneessa, tulo- ja poistoilmavirrat ovat yhtä suuret, henkilöiden CO₂-tuotto pysyy valituissa olosuhteissa vakiona eikä muita CO₂-lähteitä tai -nieluja ole.</p>
+    </div>
+  </section>
+  <div class="section-heading" id="simulation"><h2>Kokeile simulaatiota</h2><p>Muuta arvoja myös simulaation käydessä. Tarkkaile sekä pitoisuutta että sen hetkellistä muutosnopeutta.</p></div>
+  <section class="layout">
+    <div class="panel controls">
+      <h2>Mallin parametrit</h2>
+      <p class="benchmark-legend"><b>Oranssi merkki</b> näyttää lähtö- tai vertailuarvon. Liukusäätimet toimivat normaalisti myös merkin molemmin puolin.</p>
+      <div class="control-grid">
+        <div class="control">
+          <div class="controlHead"><label for="people">Henkilöitä</label><output class="value" id="peopleValue"></output></div>
+          <div class="range-wrap"><input id="people" type="range" aria-describedby="peopleReference" min="0" max="40" step="1" value="30"><span class="reference-tick" id="peopleMark" aria-hidden="true"></span></div>
+          <div class="bounds"><span>0</span><span>40</span></div>
+          <div class="reference-desc" id="peopleReference"></div>
+        </div>
+        <div class="control">
+          <div class="controlHead"><label for="production">CO₂-tuotto / henkilö</label><output class="value" id="productionValue"></output></div>
+          <div class="range-wrap"><input id="production" type="range" aria-describedby="productionReference" min="6" max="36" step="1" value="18"><span class="reference-tick" id="productionMark" aria-hidden="true"></span></div>
+          <div class="bounds"><span>6 l/h</span><span>36 l/h</span></div>
+          <div class="reference-desc" id="productionReference"></div>
+        </div>
+        <div class="control">
+          <div class="controlHead"><label for="ventilation">Ilmanvaihto</label><output class="value" id="ventilationValue"></output></div>
+          <div class="range-wrap"><input id="ventilation" type="range" aria-describedby="ventilationReference" min="0" max="1500" step="25" value="650"><span class="reference-tick" id="ventilationMark" aria-hidden="true"></span></div>
+          <div class="bounds"><span>0 m³/h</span><span>1500 m³/h</span></div>
+          <div class="reference-desc" id="ventilationReference"></div>
+        </div>
+        <div class="control">
+          <div class="controlHead"><label for="volume">Huoneen tilavuus</label><output class="value" id="volumeValue"></output></div>
+          <div class="range-wrap"><input id="volume" type="range" aria-describedby="volumeReference" min="80" max="400" step="10" value="180"><span class="reference-tick" id="volumeMark" aria-hidden="true"></span></div>
+          <div class="bounds"><span>80 m³</span><span>400 m³</span></div>
+          <div class="reference-desc" id="volumeReference"></div>
+        </div>
+        <div class="control">
+          <div class="controlHead"><label for="outside">Tuloilman CO₂-pitoisuus</label><output class="value" id="outsideValue"></output></div>
+          <div class="range-wrap"><input id="outside" type="range" aria-describedby="outsideReference" min="380" max="600" step="10" value="420"><span class="reference-tick" id="outsideMark" aria-hidden="true"></span></div>
+          <div class="bounds"><span>380 ppm</span><span>600 ppm</span></div>
+          <div class="reference-desc" id="outsideReference"></div>
+        </div>
+      </div>
+      <div class="buttons">
+        <button class="primary" id="play" type="button">▶ Käynnistä</button>
+        <button id="reset" type="button">↺ Aloita alusta</button>
+        <button id="defaults" type="button">Palauta lähtöarvot</button>
+        <button id="empty" type="button">Tyhjennä luokka</button>
+      </div>
+      <div class="speedRow">
+        <label for="speed">Ajan kulku</label>
+        <select id="speed">
+          <option value="1">1 simulaatiominuutti/s</option>
+          <option value="3" selected>3 simulaatiominuuttia/s</option>
+          <option value="6">6 simulaatiominuuttia/s</option>
+          <option value="12">12 simulaatiominuuttia/s</option>
+        </select>
+      </div>
+      <p class="notes">Harmaat pisteet havainnollistavat pitoisuuden kasvua; ne eivät esitä yksittäisiä CO₂-molekyylejä tai niiden todellista osuutta ilmassa. Säädinten muuttaminen vaikuttaa heti tästä hetkestä eteenpäin; aiemmat arvot säilyvät kuvaajassa.<br>Oranssit perustasomerkit: 30 henkilön ja 180 m³:n <i>esimerkkiluokka</i>, 18 l/h/henkilö ja ulkoilman CO₂-pitoisuus 420 ppm. Ilmanvaihdon vertailumerkki vastaa 6 l/s/henkilö, ja muuttuu henkilömäärän mukana, mutta ei muuta liukusäätimen arvoa. Tyhjällekin huoneelle tarvitaan tarkoituksenmukainen ilmanvaihto; vertailumerkki ei ole mitoitusohje.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Luokkahuone</h2>
+      <div class="stats" aria-live="polite">
+        <div class="stat"><span class="stat-label">CO₂ nyt</span><strong id="current">420 ppm</strong></div>
+        <div class="stat"><span class="stat-label">Tasapainopitoisuus</span><strong id="equilibrium">1251 ppm</strong></div>
+        <div class="stat"><span class="stat-label">Ilman vaihtuvuus</span><strong id="ach">3,61 h⁻¹</strong></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="room" role="img" aria-label="Luokkahuoneen havainnollistus: tikku-ukkoja ja CO₂-pitoisuuden mukaan lisääntyviä harmaita pisteitä"></canvas></div>
+      <div class="figure-bottom"><span><span class="legend-dot"></span>Harmaat pisteet kuvaavat CO₂-pitoisuuden kasvua</span><span id="clock">Aika 0,0 min</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>CO₂-pitoisuus ajan funktiona</h2>
+      <div class="tangent-bar"><label for="showTangent"><input id="showTangent" type="checkbox" checked> Näytä tangentti (hetkellinen muutosnopeus)</label><button class="secondary-small" id="followCurrent" type="button" hidden>Palaa nykyhetkeen</button></div>
+      <div class="canvas-wrap"><canvas id="graph" role="img" aria-label="CO₂-pitoisuuden kuvaaja ajan suhteen. Voit valita kuvaajasta aiemman ajanhetken tangenttia varten."></canvas></div>
+      <div class="tangent-readout" id="tangentReadout" aria-live="polite"><strong>Muutosnopeus: +3000 ppm/h</strong> · Aika 0,0 min</div>
+      <p class="tangent-note">Napauta tai klikkaa kuvaajaa valitaksesi ajanhetken. Tangentti näyttää käyrän kaltevuuden juuri siinä kohdassa. Valitse ”Palaa nykyhetkeen” palataksesi liikkuvaan tangenttiin.</p>
+      <div class="figure-bottom"><span class="graph-key"><i class="key-mark"></i> Pitoisuus <i class="key-mark eq"></i> Tasapainotaso <i class="key-mark tan"></i> Tangentti</span><span id="trend">Käynnistä simulaatio</span></div>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const inputs = {
+    N: $('people'), g: $('production'), Q: $('ventilation'),
+    V: $('volume'), Cu: $('outside')
+  };
+  const defaults = Object.freeze({N:30,g:18,Q:650,V:180,Cu:420});
+  const referenceElements = {
+    N: ['people','peopleReference'],
+    g: ['production','productionReference'],
+    Q: ['ventilation','ventilationReference'],
+    V: ['volume','volumeReference'],
+    Cu: ['outside','outsideReference']
+  };
+  const fmt = (n, d=0) => Number(n).toLocaleString('fi-FI', {minimumFractionDigits:d, maximumFractionDigits:d});
+  const params = () => Object.fromEntries(Object.entries(inputs).map(([k, el]) => [k, Number(el.value)]));
+  const room = $('room'), graph = $('graph');
+  let C = Number(inputs.Cu.value), t = 0, running = false, prevFrame = 0, prevN = null;
+  let history = [{t:0, C, rate: 0}], lastRecorded = 0, savedN = defaults.N;
+  let selectedTime = null, lastGraphBounds = null;
+  const particles = Array.from({length:1800}, () => ({x:Math.random(), y:Math.random(), phase:Math.random()*6.28, drift:0.3+Math.random()}));
+  const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo,x));
+  function instantaneousRate(concentration=C){
+    const {N,g,Q,V,Cu}=params();
+    return 1000*N*g/V - Q/V*(concentration-Cu);
+  }
+  history[0].rate=instantaneousRate();
+  function addHistoryPoint(){
+    const pt={t,C,rate:instantaneousRate()};
+    // Multiple changes at the same time update the latest derivative, not past observations.
+    if(history.length && Math.abs(history[history.length-1].t-t)<1e-8) history[history.length-1]=pt;
+    else history.push(pt);
+    lastRecorded=t;
+  }
+  $('explainToggle').addEventListener('click',()=>{
+    const open=$('explanation').hidden;
+    $('explanation').hidden=!open;
+    $('explainToggle').setAttribute('aria-expanded',String(open));
+    $('explainToggle').textContent=open?'Piilota tarkempi selitys ▴':'Näytä yhtälön tarkempi selitys ▾';
+  });
+
+  let lastReferenceN = null;
+  function syncReferenceMarks(){
+    const {N} = params();
+    if(N === lastReferenceN) return;
+    lastReferenceN = N;
+    // 6 l/s per person => 21.6 m³/h per person. This marker follows occupancy.
+    const qReference = 6 * 3.6 * N;
+    const references = {
+      N: {value:defaults.N, text:'Esimerkkiluokka: 30 henkilöä'},
+      g: {value:defaults.g, text:'Tyypillinen rauhallinen oleskelu: 18 l/h'},
+      Q: {value:qReference, text:`Vertailutaso 6 l/s/hlö: ${fmt(qReference)} m³/h (${N} hlö)`},
+      V: {value:defaults.V, text:'Esimerkkiluokka: 180 m³ (60 m² × 3 m)'},
+      Cu: {value:defaults.Cu, text:'Ulkoilman esimerkkiarvo: 420 ppm'}
+    };
+    for(const [k,[id,labelId]] of Object.entries(referenceElements)) {
+      const slider = inputs[k], ref = references[k];
+      const min = Number(slider.min), max=Number(slider.max);
+      const fraction = clamp((ref.value-min)/(max-min), 0, 1);
+      // Native range thumbs are roughly 16px wide; offset so tick stays aligned.
+      $(id+'Mark').style.left = `calc(${fmt(fraction*100,5).replace(',', '.')}% + ${8-16*fraction}px)`;
+      $(labelId).textContent=ref.text;
+      slider.setAttribute('data-reference', String(ref.value));
+    }
+  }
+
+  function syncLabels(){
+    syncReferenceMarks();
+    const p = params();
+    $('peopleValue').textContent = `${p.N} hlö`;
+    $('productionValue').textContent = `${p.g} l/h`;
+    $('ventilationValue').textContent = `${fmt(p.Q)} m³/h`;
+    $('volumeValue').textContent = `${p.V} m³`;
+    $('outsideValue').textContent = `${p.Cu} ppm`;
+    const eq = p.Q > 0 ? p.Cu + p.N*p.g*1000/p.Q : null;
+    $('current').textContent = `${fmt(C)} ppm`;
+    $('equilibrium').textContent = eq === null ? 'Ei rajaa' : `${fmt(eq)} ppm`;
+    $('ach').textContent = `${fmt(p.Q/p.V,2)} h⁻¹`;
+    $('clock').textContent = `Aika ${fmt(t,1)} min`;
+    $('trend').textContent = (p.Q===0 && p.N>0) ? 'Ilmanvaihto pois päältä: pitoisuus kasvaa' : `Tuotto ${fmt(p.N*p.g,0)} l/h`;
+    $('empty').textContent = p.N === 0 && savedN > 0 ? 'Palauta henkilöt' : 'Tyhjennä luokka';
+  }
+
+  // Exact integration over a time step for constant parameters.
+  // dC/dt = N*g*1000/V - Q/V*(C-Cu), where t is in hours and g in litres/h.
+  function advance(dtHours){
+    const {N,g,Q,V,Cu} = params();
+    if (Q===0) C += (N*g*1000/V)*dtHours;
+    else {
+      const eq = Cu + N*g*1000/Q;
+      C = eq + (C-eq)*Math.exp(-(Q/V)*dtHours);
+    }
+    C = Math.max(0,C);
+    t += dtHours*60;
+    if(t-lastRecorded>=0.15){
+      addHistoryPoint();
+    }
+  }
+
+  function resizeCanvas(canvas){
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    const {width,height} = canvas.getBoundingClientRect();
+    const w = Math.max(1,Math.round(width*dpr)), h = Math.max(1,Math.round(height*dpr));
+    if(canvas.width!==w || canvas.height!==h){canvas.width=w;canvas.height=h;}
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx,w:width,h:height};
+  }
+
+  function drawStick(ctx,x,y,scale){
+    ctx.save(); ctx.translate(x,y); ctx.scale(scale,scale);
+    ctx.lineWidth=2.1; ctx.strokeStyle='#34556c'; ctx.lineCap='round';
+    ctx.fillStyle='#e4ebf0';
+    ctx.beginPath();ctx.arc(0,-24,6.2,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-18);ctx.lineTo(0,0);
+    ctx.moveTo(0,-12);ctx.lineTo(-10,-4);ctx.moveTo(0,-12);ctx.lineTo(10,-4);
+    ctx.moveTo(0,0);ctx.lineTo(-8,13);ctx.moveTo(0,0);ctx.lineTo(8,13);ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawRoom(elapsedSec){
+    const {ctx,w,h}=resizeCanvas(room); if(!w||!h) return;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#f3f9fd';ctx.fillRect(0,0,w,h);
+    // Wall, window, floor and chalkboard.
+    ctx.fillStyle='#e7f0f7';ctx.fillRect(0,h-43,w,43);
+    ctx.fillStyle='#fbfdff';ctx.fillRect(16,13,Math.max(25,w*.18),56);
+    ctx.strokeStyle='#c6dce9';ctx.lineWidth=2;ctx.strokeRect(16,13,Math.max(25,w*.18),56);
+    ctx.beginPath();ctx.moveTo(16+Math.max(25,w*.18)/2,13);ctx.lineTo(16+Math.max(25,w*.18)/2,69);ctx.stroke();
+    ctx.fillStyle='#25565d';ctx.fillRect(Math.max(w*.43,135),13,Math.max(w*.27,75),42);
+    ctx.fillStyle='#d3ece5';ctx.font='13px system-ui,sans-serif';ctx.fillText('CO₂',Math.max(w*.43,135)+15,40);
+    // Airborne particles. Visible quantity is symbolic, not molecular scale.
+    const count = Math.round(clamp(30 + (C-420)*0.23, 8, particles.length));
+    ctx.fillStyle='rgba(84,99,109,0.55)';
+    const move=running ? elapsedSec : 0;
+    for(let i=0;i<count;i++){
+      const p=particles[i];
+      const xx=(p.x+move*p.drift*0.008)%1;
+      const yy=(p.y+Math.sin(move*.5+p.phase)*.006+1)%1;
+      const x=9+xx*(w-18), y=10+yy*(h-48);
+      ctx.fillRect(Math.round(x),Math.round(y),2.6,2.6);
+    }
+    const {N}=params();
+    const cols = w < 420 ? 8 : 10;
+    const rows=Math.ceil(N/cols);
+    const yTop = Math.max(90,h-48-(Math.min(rows,5)-1)*39);
+    for(let j=0;j<N;j++){
+      const row=Math.floor(j/cols), column=j%cols;
+      const nThisRow=Math.min(cols,N-row*cols);
+      const spacing=Math.min(46,(w-38)/Math.max(1,cols));
+      const startX=w/2-(nThisRow-1)*spacing/2;
+      drawStick(ctx,startX+column*spacing,yTop+row*39, w<420?.76:.88);
+    }
+    ctx.fillStyle='#6f8596';ctx.font='12px system-ui,sans-serif';
+    ctx.fillText(`Henkilöitä: ${N}`,13,h-13);
+  }
+
+  function drawGraph(){
+    const {ctx,w,h}=resizeCanvas(graph); if(!w||!h)return;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+    const left=w<420?49:62,right=19,top=21,bottom=42;
+    const pw=w-left-right,ph=h-top-bottom;
+    const endT=Math.max(60, Math.ceil((t+1)/15)*15);
+    const p=params();
+    const eq=p.Q>0 ? p.Cu+p.N*p.g*1000/p.Q : null;
+    const maxHistory = Math.max(C,...history.map(v=>v.C));
+    const candidate = Math.max(1100, maxHistory, eq===null?0:Math.min(eq,Math.max(2200,maxHistory*1.4)));
+    const yTop=Math.ceil(candidate*1.13/200)*200;
+    const yBottom=Math.max(0,Math.floor(Math.min(380,p.Cu, ...history.map(v=>v.C))/200)*200);
+    const xX=tt=>left+tt/endT*pw;
+    const yY=cc=>top+(yTop-cc)/(yTop-yBottom)*ph;
+    lastGraphBounds={left,top,pw,ph,endT};
+    ctx.font='11px system-ui,sans-serif';ctx.fillStyle='#697f8f';
+    const gridSteps = 5;
+    for(let i=0;i<=gridSteps;i++){
+      const val=yBottom+(yTop-yBottom)*i/gridSteps;
+      const y=yY(val);
+      ctx.strokeStyle='#e8eef3';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-right,y);ctx.stroke();
+      ctx.textAlign='right';ctx.fillText(String(Math.round(val)),left-7,y+4);
+    }
+    const tick = endT<=90?15:endT<=180?30:endT<=480?60:Math.ceil(endT/6/60)*60;
+    for(let k=0;k<=endT;k+=tick){
+      const x=xX(k);ctx.strokeStyle='#f0f3f6';ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,h-bottom);ctx.stroke();
+      ctx.textAlign='center';ctx.fillStyle='#697f8f';ctx.fillText(String(k),x,h-bottom+18);
+    }
+    ctx.textAlign='center';ctx.fillText('Aika (min)',left+pw/2,h-10);
+    ctx.save();ctx.translate(15,top+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('CO₂ (ppm)',0,0);ctx.restore();
+    if(eq!==null && eq<=yTop && eq>=yBottom){
+      ctx.save();ctx.strokeStyle='#bd9170';ctx.setLineDash([5,5]);ctx.lineWidth=1.4;
+      ctx.beginPath();ctx.moveTo(left,yY(eq));ctx.lineTo(w-right,yY(eq));ctx.stroke();ctx.restore();
+    }
+    ctx.strokeStyle='#167bb9';ctx.lineWidth=2.7;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+    history.forEach((v,i)=>{ const x=xX(v.t),y=yY(v.C); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
+    if(t>lastRecorded) ctx.lineTo(xX(t),yY(C));
+    ctx.stroke();
+    ctx.fillStyle='#167bb9';ctx.beginPath();ctx.arc(xX(t),yY(C),3.5,0,Math.PI*2);ctx.fill();
+
+    const selected = selectedTime===null ? {t,C,rate:instantaneousRate()} :
+      history.reduce((prev,pt)=>Math.abs(pt.t-selectedTime)<Math.abs(prev.t-selectedTime)?pt:prev, history[0]);
+    const show=$('showTangent').checked;
+    $('followCurrent').hidden=selectedTime===null;
+    const arrow=selected.rate>0?'+':selected.rate<0?'−':'';
+    const rateFormatted=arrow+fmt(Math.abs(selected.rate),0)+' ppm/h';
+    $('tangentReadout').innerHTML='<strong>Muutosnopeus: '+rateFormatted+'</strong> · Aika '+fmt(selected.t,1)+' min'+(selectedTime===null?' (nykyhetki)':' (valittu piste)');
+    $('tangentReadout').style.opacity=show?'1':'.60';
+    if(show){
+      const centerX=xX(selected.t),centerY=yY(selected.C);
+      // dC/dt (ppm/h) -> pixels per horizontal pixel using min on x axis.
+      const screenSlope=-(selected.rate/60)*(ph/(yTop-yBottom))*(endT/pw);
+      const length=110;
+      ctx.save();ctx.beginPath();ctx.rect(left,top,pw,ph);ctx.clip();
+      ctx.strokeStyle='#be6c22';ctx.lineWidth=2.8;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(centerX-length,centerY-screenSlope*length);
+      ctx.lineTo(centerX+length,centerY+screenSlope*length);ctx.stroke();
+      ctx.setLineDash([3,4]);ctx.strokeStyle='#cc975c';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(centerX,centerY);ctx.lineTo(centerX,h-bottom);ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle='#fff';ctx.strokeStyle='#b75e13';ctx.lineWidth=2.4;
+      ctx.beginPath();ctx.arc(centerX,centerY,5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+  }
+
+  function draw(){syncLabels(); drawRoom(t/60); drawGraph();}
+  function reset(){
+    running=false;prevFrame=0;C=params().Cu;t=0;lastRecorded=0;history=[{t:0,C,rate:instantaneousRate()}];selectedTime=null;
+    $('play').textContent='▶ Käynnistä';draw();
+  }
+  function setRunning(value){
+    running=value;prevFrame=0;
+    $('play').textContent=running?'⏸ Pysäytä':'▶ Jatka';
+    draw();
+  }
+  $('play').addEventListener('click',()=>setRunning(!running));
+  $('reset').addEventListener('click',reset);
+  $('defaults').addEventListener('click',()=>{
+    for(const [k,val] of Object.entries(defaults)) inputs[k].value=String(val);
+    savedN=defaults.N;
+    reset();
+  });
+  $('empty').addEventListener('click',()=>{
+    const n=Number(inputs.N.value);
+    if(n>0){savedN=n;inputs.N.value='0';}
+    else inputs.N.value=String(savedN||defaults.N);
+    addHistoryPoint();draw();
+  });
+  Object.values(inputs).forEach(input=>input.addEventListener('input',()=>{
+    if(input===inputs.N && Number(input.value)>0)savedN=Number(input.value);
+    addHistoryPoint();draw();
+  }));
+  $('speed').addEventListener('change',draw);
+  $('showTangent').addEventListener('change',draw);
+  $('followCurrent').addEventListener('click',()=>{selectedTime=null;draw();});
+  graph.addEventListener('click',event=>{
+    if(!lastGraphBounds)return;
+    const rect=graph.getBoundingClientRect();
+    const px=event.clientX-rect.left;
+    const {left,pw,endT}=lastGraphBounds;
+    const desired=clamp((px-left)/pw*endT,0,t);
+    // Keep the chosen earlier time fixed while the simulation runs on.
+    const all=history.concat([{t,C,rate:instantaneousRate()}]);
+    const nearest=all.reduce((a,b)=>Math.abs(b.t-desired)<Math.abs(a.t-desired)?b:a,all[0]);
+    selectedTime=nearest.t;
+    draw();
+  });
+  window.addEventListener('resize',draw);
+  function animate(now){
+    if(running && prevFrame){
+      const deltaSecs=Math.min((now-prevFrame)/1000,.15);
+      const dtHours=deltaSecs*Number($('speed').value)/60;
+      advance(dtHours);
+      // Limit memory growth in exceptionally long running sessions.
+      if(history.length>8000)history=history.filter((_,i)=>i%2===0 || i===history.length-1);
+    }
+    prevFrame=now;
+    draw();
+    requestAnimationFrame(animate);
+  }
+  draw();requestAnimationFrame(animate);
+  // Simple read-only hook for automated validation or educational extensions.
+  window.co2Simulation = {getState:()=>({timeMinutes:t, concentrationPpm:C, changeRatePpmPerHour:instantaneousRate(), selectedTimeMinutes:selectedTime, ...params()}), reset};
+})();
+</script>
+</body>
+</html>
